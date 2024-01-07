@@ -1,0 +1,110 @@
+/* Copyright (c) 2023, Sascha Willems
+*
+* SPDX-License-Identifier: MIT
+*
+*/
+
+#version 460
+#extension GL_EXT_ray_tracing:enable
+#extension GL_GOOGLE_include_directive:require
+#include "common.glsl"
+
+layout(binding=0,set=0)uniform accelerationStructureEXT topLevelAS;
+layout(binding=1,set=0,rgba8)uniform image2D image;
+layout(binding=2,set=0)uniform UBO
+{
+	mat4 viewInverse;
+	mat4 projInverse;
+	uint frame;
+	uint randomSeed;
+	uint recursiveDepth;
+	uint sampleDimenson;
+	uint lightCount;
+	uint enableDirectLighting;
+}ubo;
+
+#include "SH.glsl"
+
+layout(location=0)rayPayloadEXT RayPayload rayPL;
+
+#include "random.glsl"
+
+const uint stack_size=16;
+uint samples=ubo.sampleDimenson*ubo.sampleDimenson;
+
+struct Stack{
+	vec3 direct_radiance[stack_size];
+	vec3 attenuation[stack_size];
+}stack;
+
+vec3 gamma_correct(vec3 color)
+{
+	return color;
+}
+
+vec3 gamma_inverse(vec3 color){
+	return color;
+}
+
+void main()
+{
+	rayPL.radiance=vec3(0.);
+	rayPL.worldpos=vec3(0.);
+	
+	vec3 hitValues=vec3(0.);
+	
+	rayPL.seed=tea(gl_LaunchIDEXT.y*gl_LaunchSizeEXT.x+gl_LaunchIDEXT.x,ubo.randomSeed);
+	
+	float r1=0.,r2=0.;
+	
+	for(uint i=0;i<samples;i++)
+	{
+		r1=rnd(rayPL.seed);
+		r2=rnd(rayPL.seed);
+		vec2 subpixel_jitter=vec2(r1,r2)/float(ubo.sampleDimenson)
+		+vec2(float(i/ubo.sampleDimenson)/float(ubo.sampleDimenson),
+		float(i%ubo.sampleDimenson)/float(ubo.sampleDimenson));
+		const vec2 pixelCenter=vec2(gl_LaunchIDEXT.xy)+subpixel_jitter;
+		const vec2 inUV=pixelCenter/vec2(gl_LaunchSizeEXT.xy);
+		vec2 d=inUV*2.-1.;
+		vec3 origin=(ubo.viewInverse*vec4(0,0,0,1)).xyz;
+		vec4 target=ubo.projInverse*vec4(d.x,d.y,1,1);
+		vec3 direction=(ubo.viewInverse*vec4(normalize(target.xyz),0.)).xyz;
+		float tmin=.001;
+		float tmax=10000.;
+		
+		int depth=0;
+		for(depth=0;;depth++)
+		{
+			traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xff,0,0,0,origin,tmin,direction,tmax,0);
+			stack.direct_radiance[depth]=rayPL.radiance;
+			if(rayPL.recursiveflag==false){depth=max(0,depth-1);break;}
+			if(depth>=ubo.recursiveDepth-1)break;
+			stack.attenuation[depth]=rayPL.attenuation;
+			origin=rayPL.worldpos;
+			direction=rayPL.samplevec;
+		}
+		vec3 radiance=vec3(0.);
+		while(depth>0)
+		{
+			radiance=stack.direct_radiance[depth]+stack.attenuation[depth]*radiance;
+			depth--;
+		}
+		if(ubo.enableDirectLighting==1)
+		hitValues+=radiance*stack.attenuation[0]+stack.direct_radiance[0];
+		else
+		hitValues+=max(radiance,vec3(1.));
+	}
+	
+	vec3 hitVal=hitValues/float(samples);
+	if(ubo.frame>0)
+	{
+		float a=1.f/float(ubo.frame+1);
+		vec3 old_color=gamma_inverse(imageLoad(image,ivec2(gl_LaunchIDEXT.xy)).xyz);
+		imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(gamma_correct(mix(old_color,hitVal,a)),1.f));
+	}else{
+		//		 First frame, replace the value in the buffer
+		imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(gamma_correct(hitVal),1.f));
+	}
+	
+}
