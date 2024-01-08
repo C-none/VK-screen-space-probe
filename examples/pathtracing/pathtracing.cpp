@@ -6,7 +6,7 @@
 
 constexpr uint32_t WIDTH = 1280;
 constexpr uint32_t HEIGHT = 720;
-// it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/raytracinggltf/raygen.rgen. 'stack_size' can be set freely.
+// it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/pathtracing/raygen.rgen. 'stack_size' can be set freely.
 // the smaller the value, the faster the ray tracing speed
 constexpr uint32_t RECURSIVE_DEPTH = 10;
 constexpr bool ENABLE_DIRECT_LIGHTING = false;
@@ -24,7 +24,7 @@ constexpr uint32_t OUTPUT_INTERVAL = 250;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);
-// light information should not be greater than 'maxLights' in glsl/raytracinggltf/closesthit.rchit. 'maxLights' can be set freely.
+// light information should not be greater than 'maxLights' in glsl/pathtracing/closesthit.rchit. 'maxLights' can be set freely.
 constexpr uint32_t LIGHT_COUNT = 1;
 struct Light {
     glm::vec4 position;
@@ -538,7 +538,7 @@ public:
         // Ray generation group
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/raygen.rgen.spv",
+                loadShader(getShadersPath() + "pathtracing/raygen.rgen.spv",
                     VK_SHADER_STAGE_RAYGEN_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -553,7 +553,7 @@ public:
         // Miss group
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/miss.rmiss.spv",
+                loadShader(getShadersPath() + "pathtracing/miss.rmiss.spv",
                     VK_SHADER_STAGE_MISS_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -565,7 +565,7 @@ public:
             shaderGroups.push_back(shaderGroup);
             // Second shader for shadows
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/shadow.rmiss.spv",
+                loadShader(getShadersPath() + "pathtracing/shadow.rmiss.spv",
                     VK_SHADER_STAGE_MISS_BIT_KHR));
             shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
@@ -574,7 +574,7 @@ public:
         // Closest hit group for doing texture lookups
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/closesthit.rchit.spv",
+                loadShader(getShadersPath() + "pathtracing/closesthit.rchit.spv",
                     VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -585,7 +585,7 @@ public:
             // This group also uses an anyhit shader for doing transparency (see
             // anyhit.rahit for details)
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/anyhit.rahit.spv",
+                loadShader(getShadersPath() + "pathtracing/anyhit.rahit.spv",
                     VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
             shaderGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
@@ -594,7 +594,7 @@ public:
         // Closet hit group for check visibility from light
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/shadow.rchit.spv",
+                loadShader(getShadersPath() + "pathtracing/shadow.rchit.spv",
                     VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -603,7 +603,7 @@ public:
             shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/anyhit.rahit.spv",
+                loadShader(getShadersPath() + "pathtracing/anyhit.rahit.spv",
                     VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
             shaderGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);

@@ -6,9 +6,9 @@
 
 constexpr uint32_t WIDTH = 1280;
 constexpr uint32_t HEIGHT = 720;
-// it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/raytracinggltf/raygen.rgen. 'stack_size' can be set freely.
+// it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/ssprobe/raygen.rgen. 'stack_size' can be set freely.
 // the smaller the value, the faster the ray tracing speed
-constexpr uint32_t RECURSIVE_DEPTH = 4;
+constexpr uint32_t RECURSIVE_DEPTH = 8;
 constexpr bool ENABLE_DIRECT_LIGHTING = false;
 // Stratified sampling
 // divide one pixel into SAMPLE_DIMENSION*SAMPLE_DEMENTION subpixels
@@ -24,7 +24,7 @@ constexpr uint32_t OUTPUT_INTERVAL = 40;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);
-// light information should not be greater than 'maxLights' in glsl/raytracinggltf/closesthit.rchit. 'maxLights' can be set freely.
+// light information should not be greater than 'maxLights' in glsl/ssprobe/closesthit.rchit. 'maxLights' can be set freely.
 constexpr uint32_t LIGHT_COUNT = 1;
 struct Light {
     glm::vec4 position;
@@ -138,7 +138,6 @@ public:
         storageBuffer.destroy();
         geometryNodesBuffer.destroy();
         // Clean up resources
-        vkDestroyImage(device, copyImage.image, nullptr);
     }
 
     /*
@@ -501,16 +500,17 @@ public:
                 VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
                 4),
-            // Binding 5: All images used by the glTF model
+            // Binding 5: SH coefficients
+            vks::initializers::descriptorSetLayoutBinding(
+                VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                VK_SHADER_STAGE_RAYGEN_BIT_KHR,
+                5),
+            // Binding 6: All images used by the glTF model
             vks::initializers::descriptorSetLayoutBinding(
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-                5, imageCount),
-            // Binding 6: SH coefficients
-            vks::initializers::descriptorSetLayoutBinding(
-				VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				VK_SHADER_STAGE_RAYGEN_BIT_KHR ,
-				6),
+                6, imageCount),
+
         };
         // Binding 3: Texture image
         // vks::initializers::descriptorSetLayoutBinding(
@@ -522,7 +522,7 @@ public:
         setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
         setLayoutBindingFlags.bindingCount = static_cast<uint32_t>(setLayoutBindings.size());
         std::vector<VkDescriptorBindingFlagsEXT> descriptorBindingFlags = {
-            0, 0, 0, 0, 0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT, 0
+            0, 0, 0, 0, 0, 0, VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT_EXT
         };
         setLayoutBindingFlags.pBindingFlags = descriptorBindingFlags.data();
 
@@ -544,7 +544,7 @@ public:
         // Ray generation group
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/raygen.rgen.spv",
+                loadShader(getShadersPath() + "ssprobe/raygen.rgen.spv",
                     VK_SHADER_STAGE_RAYGEN_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -559,7 +559,7 @@ public:
         // Miss group
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/miss.rmiss.spv",
+                loadShader(getShadersPath() + "ssprobe/miss.rmiss.spv",
                     VK_SHADER_STAGE_MISS_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -571,7 +571,7 @@ public:
             shaderGroups.push_back(shaderGroup);
             // Second shader for shadows
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/shadow.rmiss.spv",
+                loadShader(getShadersPath() + "ssprobe/shadow.rmiss.spv",
                     VK_SHADER_STAGE_MISS_BIT_KHR));
             shaderGroup.generalShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
@@ -580,7 +580,7 @@ public:
         // Closest hit group for doing texture lookups
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/closesthit.rchit.spv",
+                loadShader(getShadersPath() + "ssprobe/closesthit.rchit.spv",
                     VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -591,7 +591,7 @@ public:
             // This group also uses an anyhit shader for doing transparency (see
             // anyhit.rahit for details)
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/anyhit.rahit.spv",
+                loadShader(getShadersPath() + "ssprobe/anyhit.rahit.spv",
                     VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
             shaderGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
@@ -600,7 +600,7 @@ public:
         // Closet hit group for check visibility from light
         {
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/shadow.rchit.spv",
+                loadShader(getShadersPath() + "ssprobe/shadow.rchit.spv",
                     VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR));
             VkRayTracingShaderGroupCreateInfoKHR shaderGroup {};
             shaderGroup.sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR;
@@ -609,7 +609,7 @@ public:
             shaderGroup.closestHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroup.intersectionShader = VK_SHADER_UNUSED_KHR;
             shaderStages.push_back(
-                loadShader(getShadersPath() + "raytracinggltf/anyhit.rahit.spv",
+                loadShader(getShadersPath() + "ssprobe/anyhit.rahit.spv",
                     VK_SHADER_STAGE_ANY_HIT_BIT_KHR));
             shaderGroup.anyHitShader = static_cast<uint32_t>(shaderStages.size()) - 1;
             shaderGroups.push_back(shaderGroup);
@@ -646,9 +646,8 @@ public:
             { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
             { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
             { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1 },
-            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageCount },
             { VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1 },
-            
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageCount },            
         };
         VkDescriptorPoolCreateInfo descriptorPoolCreateInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, 1);
         VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolCreateInfo,
@@ -705,7 +704,7 @@ public:
                 4, &geometryNodesBuffer.descriptor),
             vks::initializers::writeDescriptorSet(descriptorSet,
             VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-				6, &storageBuffer.descriptor),
+				5, &storageBuffer.descriptor),
         };
 
         // Image descriptors for the image array
@@ -721,7 +720,7 @@ public:
 
         VkWriteDescriptorSet writeDescriptorImgArray {};
         writeDescriptorImgArray.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        writeDescriptorImgArray.dstBinding = 5;
+        writeDescriptorImgArray.dstBinding = 6;
         writeDescriptorImgArray.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
         writeDescriptorImgArray.descriptorCount = imageCount;
         writeDescriptorImgArray.dstSet = descriptorSet;
@@ -941,13 +940,14 @@ public:
         updateUniformBuffers();
         draw();
         std::cerr << "sample count:" << (uniformData.frame) * SAMPLE_COUNT << std::endl;
-        if (uniformData.frame && uniformData.frame% OUTPUT_INTERVAL == 0)
-			saveScreenshot();
+        //if (uniformData.frame && uniformData.frame % OUTPUT_INTERVAL == 0)
+            saveSH();
     }
 
     void createStorageBuffer() {
         // Three Band SH Coefficients RGB
-        VkDeviceSize storageBufferSize = width*height*9*sizeof(glm::vec3);
+            VkDeviceSize storageBufferSize = width * height * 9 * sizeof(glm::vec3);
+
         VK_CHECK_RESULT(vulkanDevice->createBuffer(
 			VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
             VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
@@ -955,6 +955,16 @@ public:
         VK_CHECK_RESULT(storageBuffer.map());
     }
 
+    void saveSH() {
+        auto data = static_cast<glm::vec3*>(storageBuffer.mapped);
+        std::vector<glm::vec3> sh;
+        sh.resize(width*height*9);
+        memcpy(sh.data(), data, width*height*9*sizeof(glm::vec3));
+        for (size_t i = 0; i < 9; i++) {
+            std::cout << sh[i].x << " " << sh[i].y << " " << sh[i].z << std::endl;
+        }
+
+    }
     //void saveScreenshot()
     //{
     //    // Get layout of the image (including row pitch)

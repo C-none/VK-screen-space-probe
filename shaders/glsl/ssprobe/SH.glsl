@@ -27,3 +27,15 @@ void update(inout vec3 SH[9],vec3 direction,vec3 value){
     SH[getIndex(3,1)]+=-value*-1.092548*x*z;
     SH[getIndex(3,2)]+=value*.546274*(x*x-y*y);
 }
+
+vec3 loadSH(uint bias){
+    bias*=3;
+    return vec3(shCoefficients.SH[bias],shCoefficients.SH[bias+1],shCoefficients.SH[bias+2]);
+}
+
+void storeSH(vec3 value,uint bias){
+    bias*=3;
+    shCoefficients.SH[bias]=value.x;
+    shCoefficients.SH[bias+1]=value.y;
+    shCoefficients.SH[bias+2]=value.z;
+}

@@ -39,7 +39,7 @@ struct GeometryNode{
 };
 layout(binding=4,set=0)buffer GeometryNodes{GeometryNode nodes[];}geometryNodes;
 
-layout(binding=5,set=0)uniform sampler2D textures[];
+layout(binding=6,set=0)uniform sampler2D textures[];
 
 struct Light{
 	vec4 position;
