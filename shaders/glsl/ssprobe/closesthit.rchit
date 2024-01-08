@@ -96,13 +96,12 @@ vec3 compute_albedo(vec3 l){
 }
 mat3 TBN;
 
-float CDF_inv(float x){
-	return asin(x);
-}
-vec3 generate_hemisphere(){
+vec3 generate_hemisphere(out float pdf){
 	float a=2.*PI*rnd(rayPL.seed);
-	float b=CDF_inv(rnd(rayPL.seed));
-	vec3 samplevec=vec3(sin(b)*cos(a),sin(b)*sin(a),cos(b));
+	float cosb=sqrt(rnd(rayPL.seed));
+	float sinb=sqrt(1.-cosb*cosb);
+	vec3 samplevec=vec3(cos(a)*sinb,sin(a)*sinb,cosb);
+	pdf=cosb/PI;
 	return normalize(TBN*samplevec);
 }
 
@@ -125,17 +124,17 @@ void main()
 	
 	rayPL.radiance=vec3(0.);
 	vec3 direct_lighting=vec3(0.);
-	
-	// direct lighting
-	for(int i=0;i<ubo.lightCount;i++){
-		// check visibility
-		vec3 lightvec=lights.light[i].position.xyz-rayPL.worldpos;
-		if(dot(worldnormal,lightvec)>=0.&&check_visibility(lightvec)){
-			float lightDistance=length(lightvec);
-			float attenuation=1./(lightDistance*lightDistance);
-			//				float attenuation=1./lightDistance;
-			float NdotL=max(dot(worldnormal,normalize(lightvec)),0.);
-			direct_lighting+=lights.light[i].color*NdotL*lights.light[i].intensity*attenuation*compute_albedo(lightvec);
+	if(rayPL.lightingflag){
+		// direct lighting
+		for(int i=0;i<ubo.lightCount;i++){
+			// check visibility
+			vec3 lightvec=lights.light[i].position.xyz-rayPL.worldpos;
+			if(dot(worldnormal,lightvec)>=0.&&check_visibility(lightvec)){
+				float lightDistance=length(lightvec);
+				float attenuation=1./(lightDistance*lightDistance);
+				float NdotL=max(dot(worldnormal,normalize(lightvec)),0.);
+				direct_lighting+=lights.light[i].color*NdotL*lights.light[i].intensity*attenuation*compute_albedo(lightvec);
+			}
 		}
 	}
 	
@@ -147,7 +146,7 @@ void main()
 	// indirect lighting
 	rayPL.recursiveflag=true;
 	// sample hemisphere
-	rayPL.samplevec=generate_hemisphere();
-	rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec);
-	
+	float pdf;
+	rayPL.samplevec=generate_hemisphere(pdf);
+	rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec)/pdf;
 }

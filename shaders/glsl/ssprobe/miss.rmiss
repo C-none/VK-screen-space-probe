@@ -13,7 +13,7 @@ layout(location=0)rayPayloadInEXT RayPayload rayPL;
 
 void main()
 {
-	rayPL.radiance=vec3((gl_WorldRayDirectionEXT.z+1.)/2.);
+	rayPL.radiance=vec3(0.);
 	rayPL.attenuation=vec3(1.);
 	rayPL.recursiveflag=false;
 }

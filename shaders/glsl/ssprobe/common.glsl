@@ -4,6 +4,7 @@ struct RayPayload{
     vec3 samplevec;
     vec3 attenuation;
     uint seed;
+    bool lightingflag;
     bool recursiveflag;
 };
 

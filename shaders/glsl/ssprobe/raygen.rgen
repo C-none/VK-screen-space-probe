@@ -12,9 +12,8 @@ layout(binding=2,set=0)uniform UBO
 	uint frame;
 	uint randomSeed;
 	uint recursiveDepth;
-	uint sampleDimenson;
+	uint sampleCount;
 	uint lightCount;
-	uint enableDirectLighting;
 }ubo;
 layout(std430,binding=5,set=0)buffer SHcoefficients{float SH[];}shCoefficients;
 #include "SH.glsl"
@@ -24,7 +23,7 @@ layout(location=0)rayPayloadEXT RayPayload rayPL;
 #include "random.glsl"
 
 const uint stack_size=16;
-uint samples=ubo.sampleDimenson*ubo.sampleDimenson;
+uint samples=ubo.sampleCount;
 
 struct Stack{
 	vec3 direct_radiance[stack_size];
@@ -43,15 +42,9 @@ void main()
 	
 	rayPL.seed=tea(gl_LaunchIDEXT.y*gl_LaunchSizeEXT.x+gl_LaunchIDEXT.x,ubo.randomSeed);
 	
-	float r1=0.,r2=0.;
-	
 	for(uint i=0;i<samples;i++)
 	{
-		r1=rnd(rayPL.seed);
-		r2=rnd(rayPL.seed);
-		vec2 subpixel_jitter=vec2(r1,r2)/float(ubo.sampleDimenson)
-		+vec2(float(i/ubo.sampleDimenson)/float(ubo.sampleDimenson),
-		float(i%ubo.sampleDimenson)/float(ubo.sampleDimenson));
+		vec2 subpixel_jitter=vec2(.5);
 		const vec2 pixelCenter=vec2(gl_LaunchIDEXT.xy)+subpixel_jitter;
 		const vec2 inUV=pixelCenter/vec2(gl_LaunchSizeEXT.xy);
 		vec2 d=inUV*2.-1.;
@@ -62,15 +55,25 @@ void main()
 		float tmax=10000.;
 		
 		int depth=0;
+		vec3 sampleDirection=vec3(0.);
 		for(depth=0;;depth++)
 		{
+			if(depth==0)rayPL.lightingflag=false;
+			else rayPL.lightingflag=true;
 			traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xff,0,0,0,origin,tmin,direction,tmax,0);
 			stack.direct_radiance[depth]=rayPL.radiance;
-			if(rayPL.recursiveflag==false){depth=max(0,depth-1);break;}
+			if(rayPL.recursiveflag==false){
+				depth=max(depth-1,0);
+				break;
+			}
 			if(depth>=ubo.recursiveDepth-1)break;
+			if(depth==0)sampleDirection=rayPL.samplevec;
 			stack.attenuation[depth]=rayPL.attenuation;
 			origin=rayPL.worldpos;
 			direction=rayPL.samplevec;
+		}
+		if(rayPL.lightingflag==false&&rayPL.recursiveflag==false){
+			break;
 		}
 		vec3 radiance=vec3(0.);
 		while(depth>0)
@@ -78,12 +81,12 @@ void main()
 			radiance=stack.direct_radiance[depth]+stack.attenuation[depth]*radiance;
 			depth--;
 		}
-		SH[0]+=radiance;
-		// update(SH,direction,radiance);
+		radiance=clamp(radiance,0.,2.);
+		update(SH,sampleDirection,radiance);
 	}
 	
 	for(int i=0;i<9;i++){
-		SH[i]/=float(samples);
+		SH[i]*=1./float(samples);
 	}
 	
 	uint bias=(gl_LaunchIDEXT.y*gl_LaunchSizeEXT.x+gl_LaunchIDEXT.x)*9;
@@ -103,5 +106,5 @@ void main()
 			storeSH(SH[i],bias+i);
 		}
 	}
-	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias),1.));
+	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias+3)*2.,1.));
 }

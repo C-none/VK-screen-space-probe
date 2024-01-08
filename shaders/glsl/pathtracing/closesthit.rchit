@@ -41,7 +41,6 @@ layout(binding=4,set=0)buffer GeometryNodes{GeometryNode nodes[];}geometryNodes;
 
 layout(binding=5,set=0)uniform sampler2D textures[];
 
-
 struct Light{
 	vec4 position;
 	vec3 color;
@@ -97,13 +96,12 @@ vec3 compute_albedo(vec3 l){
 }
 mat3 TBN;
 
-float CDF_inv(float x){
-	return asin(x);
-}
-vec3 generate_hemisphere(){
+vec3 generate_hemisphere(out float pdf){
 	float a=2.*PI*rnd(rayPL.seed);
-	float b=CDF_inv(rnd(rayPL.seed));
-	vec3 samplevec=vec3(sin(b)*cos(a),sin(b)*sin(a),cos(b));
+	float cosb=sqrt(rnd(rayPL.seed));
+	float sinb=sqrt(1.-cosb*cosb);
+	vec3 samplevec=vec3(cos(a)*sinb,sin(a)*sinb,cosb);
+	pdf=cosb/PI;
 	return normalize(TBN*samplevec);
 }
 
@@ -123,10 +121,10 @@ void main()
 	
 	vec3 worldnormal=normalize(TBN*normalize(texture(textures[nonuniformEXT(geometryNode.textureIndexNormal)],tri.uv).rgb*2.-vec3(1.)));
 	if(dot(worldnormal,gl_WorldRayDirectionEXT)>0.)worldnormal*=-1.;
-
+	
 	rayPL.radiance=vec3(0.);
 	vec3 direct_lighting=vec3(0.);
-//	if(rayPL.lightflag){
+	//	if(rayPL.lightflag){
 		// direct lighting
 		for(int i=0;i<ubo.lightCount;i++){
 			// check visibility
@@ -139,11 +137,11 @@ void main()
 				direct_lighting+=lights.light[i].color*NdotL*lights.light[i].intensity*attenuation*compute_albedo(lightvec);
 			}
 		}
-//	}
+	//	}
 	//	rayPL.radiance=compute_albedo(-gl_WorldRayDirectionEXT);
-//	rayPL.radiance=vec3(lights.light.intensity/4.);
-		rayPL.radiance=direct_lighting;
-//		rayPL.radiance=worldnormal;
+	//	rayPL.radiance=vec3(lights.light.intensity/4.);
+	rayPL.radiance=direct_lighting;
+	//		rayPL.radiance=worldnormal;
 	// indirect lighting
 	// test Russian Roulette
 	//	const float p=1/8.;
@@ -152,8 +150,9 @@ void main()
 	//	}else{
 		rayPL.recursiveflag=true;
 		// sample hemisphere
-		rayPL.samplevec=generate_hemisphere();
-		rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec);
+		float pdf;
+		rayPL.samplevec=generate_hemisphere(pdf);
+		rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec)/pdf;
 	//	}
 	
 	// Trace shadow ray and offset indices to match shadow hit/miss shader group indices

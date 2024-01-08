@@ -9,18 +9,12 @@ constexpr uint32_t HEIGHT = 720;
 // it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/ssprobe/raygen.rgen. 'stack_size' can be set freely.
 // the smaller the value, the faster the ray tracing speed
 constexpr uint32_t RECURSIVE_DEPTH = 8;
-constexpr bool ENABLE_DIRECT_LIGHTING = false;
-// Stratified sampling
-// divide one pixel into SAMPLE_DIMENSION*SAMPLE_DEMENTION subpixels
-// then uniform randomly generate one sample in each subpixels
-// the sample count per frame should be limited in 1000
-constexpr uint32_t SAMPLE_DIMENSION = 5;
-// Thus, the total sample counts per pixel per frames is
-constexpr uint32_t SAMPLE_COUNT = SAMPLE_DIMENSION * SAMPLE_DIMENSION;
+// total sample counts per pixel per frames is
+constexpr uint32_t SAMPLE_COUNT = 4;
 // the sample results will be accumulated
 // output a ppm every n frames
 // output dir: ./out/build/**/bin/*.ppm
-constexpr uint32_t OUTPUT_INTERVAL = 40;
+constexpr uint32_t OUTPUT_INTERVAL = 4000;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);
@@ -71,9 +65,8 @@ public:
         uint32_t frame { 0 };
         uint32_t randomSeed { 0 };
         uint32_t recursiveDepth { RECURSIVE_DEPTH };
-        uint32_t sampleDimension { SAMPLE_DIMENSION };
+        uint32_t sampleCount { SAMPLE_COUNT };
         uint32_t lightCount { LIGHT_COUNT };
-        uint32_t enableDirectLighting { ENABLE_DIRECT_LIGHTING };
     } uniformData;
     vks::Buffer ubo;
     vks::Buffer light;

@@ -20,7 +20,7 @@ constexpr uint32_t SAMPLE_COUNT = SAMPLE_DIMENSION * SAMPLE_DIMENSION;
 // the sample results will be accumulated
 // output a ppm every n frames
 // output dir: ./out/build/**/bin/*.ppm
-constexpr uint32_t OUTPUT_INTERVAL = 250;
+constexpr uint32_t OUTPUT_INTERVAL = 2500;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);
