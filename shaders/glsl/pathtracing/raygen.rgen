@@ -58,7 +58,6 @@ void main()
 	
 	float r1=0.,r2=0.;
 	
-	//	rayPL.lightflag=true;
 	for(uint i=0;i<samples;i++)
 	{
 		r1=rnd(rayPL.seed);
@@ -78,8 +77,6 @@ void main()
 		int depth=0;
 		for(depth=0;;depth++)
 		{
-			//			if(ubo.enableDirectLighting==false&&depth==0)rayPL.lightflag=false;
-			//			else rayPL.lightflag=true;
 			traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xff,0,0,0,origin,tmin,direction,tmax,0);
 			stack.direct_radiance[depth]=rayPL.radiance;
 			if(rayPL.recursiveflag==false){depth=max(0,depth-1);break;}
@@ -99,8 +96,6 @@ void main()
 		else
 		hitValues+=radiance;
 	}
-	
-	//	imageStore(image, ivec2(gl_LaunchIDEXT.xy), vec4(hitValues / float(samples), 0.0));
 	
 	vec3 hitVal=hitValues/float(samples);
 	hitVal=clamp(hitVal,vec3(0.),vec3(1.2));

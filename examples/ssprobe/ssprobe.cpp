@@ -2,6 +2,7 @@
 #define VK_GLTF_MATERIAL_IDS
 #include "VulkanglTFModel.h"
 #include <random>
+#include <json.hpp>
 #define ENABLE_VALIDATION true
 
 constexpr uint32_t WIDTH = 1280;
@@ -11,10 +12,10 @@ constexpr uint32_t HEIGHT = 720;
 constexpr uint32_t RECURSIVE_DEPTH = 8;
 // total sample counts per pixel per frames is
 constexpr uint32_t SAMPLE_COUNT = 4;
-// the sample results will be accumulated
-// output a ppm every n frames
-// output dir: ./out/build/**/bin/*.ppm
-constexpr uint32_t OUTPUT_INTERVAL = 4000;
+// the sample results(SH coefficients) will be accumulated
+// output a json every n frames
+// output dir: ./out/**/bin/sh.json
+constexpr uint32_t OUTPUT_INTERVAL = 100;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);
@@ -248,23 +249,6 @@ public:
 
         createAccelerationStructure(bottomLevelAS, VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR, accelerationStructureBuildSizesInfo);
 
-        /* createAccelerationStructureBuffer(bottomLevelAS,
-                 accelerationStructureBuildSizesInfo);
-
-         VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo {};
-         accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-         accelerationStructureCreateInfo.buffer = bottomLevelAS.buffer;
-         accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
-         accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
-         vkCreateAccelerationStructureKHR(device, &accelerationStructureCreateInfo,
-                 nullptr, &bottomLevelAS.handle);
-
-         VkAccelerationStructureDeviceAddressInfoKHR accelerationDeviceAddressInfo {};
-         accelerationDeviceAddressInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_DEVICE_ADDRESS_INFO_KHR;
-         accelerationDeviceAddressInfo.accelerationStructure = bottomLevelAS.handle;
-         bottomLevelAS.deviceAddress = vkGetAccelerationStructureDeviceAddressKHR(
-                 device, &accelerationDeviceAddressInfo);*/
-
         // Create a small scratch buffer used during build of the bottom level
         // acceleration structure
         ScratchBuffer scratchBuffer = createScratchBuffer(
@@ -359,17 +343,6 @@ public:
 
         createAccelerationStructure(topLevelAS, VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR, accelerationStructureBuildSizesInfo);
 
-        // createAccelerationStructureBuffer(topLevelAS,
-        //     accelerationStructureBuildSizesInfo);
-
-        // VkAccelerationStructureCreateInfoKHR accelerationStructureCreateInfo {};
-        // accelerationStructureCreateInfo.sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_CREATE_INFO_KHR;
-        // accelerationStructureCreateInfo.buffer = topLevelAS.buffer;
-        // accelerationStructureCreateInfo.size = accelerationStructureBuildSizesInfo.accelerationStructureSize;
-        // accelerationStructureCreateInfo.type = VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR;
-        // vkCreateAccelerationStructureKHR(device, &accelerationStructureCreateInfo,
-        //     nullptr, &topLevelAS.handle);
-
         // Create a small scratch buffer used during build of the top level
         // acceleration structure
         ScratchBuffer scratchBuffer = createScratchBuffer(
@@ -425,9 +398,9 @@ public:
                                     /-----------\
                                     | raygen    |
                                     |-----------|
-                                    | miss + shadow     |
+                                    | miss + shadow *2    |
                                     |-----------|
-                                    | hit + any |
+                                    | hit + any *2 |
                                     \-----------/
 
     */
@@ -505,11 +478,6 @@ public:
                 6, imageCount),
 
         };
-        // Binding 3: Texture image
-        // vks::initializers::descriptorSetLayoutBinding(
-        //    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-        //    VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR | VK_SHADER_STAGE_ANY_HIT_BIT_KHR,
-        //    3),
         // Unbound set
         VkDescriptorSetLayoutBindingFlagsCreateInfoEXT setLayoutBindingFlags {};
         setLayoutBindingFlags.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT;
@@ -851,9 +819,6 @@ public:
         uniformData.randomSeed = u(e);
         memcpy(ubo.mapped, &uniformData, sizeof(uniformData));
 
-        //VK_CHECK_RESULT(light.map());
-        //memcpy(light.mapped, &lightBlock, sizeof(lightBlock));
-        //light.unmap();
     }
 
     void getEnabledFeatures()
@@ -888,9 +853,6 @@ public:
     void loadAssets()
     {
         vkglTF::memoryPropertyFlags = VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-        // model.loadFromFile(getAssetPath() +
-        //                        "models/FlightHelmet/glTF/FlightHelmet.gltf",
-        //                    vulkanDevice, queue);
         const uint32_t gltfLoadingFlags = vkglTF::FileLoadingFlags::FlipY;
         model.loadFromFile(getAssetPath() + "sponza/sponza.gltf",
             vulkanDevice, queue, gltfLoadingFlags);
@@ -932,8 +894,9 @@ public:
             return;
         updateUniformBuffers();
         draw();
+        std::ios::sync_with_stdio(false);
         std::cerr << "sample count:" << (uniformData.frame) * SAMPLE_COUNT << std::endl;
-        //if (uniformData.frame && uniformData.frame % OUTPUT_INTERVAL == 0)
+        if (uniformData.frame && uniformData.frame % OUTPUT_INTERVAL == 0)
             saveSH();
     }
 
@@ -949,57 +912,40 @@ public:
     }
 
     void saveSH() {
-        auto data = static_cast<glm::vec3*>(storageBuffer.mapped);
+        const auto data = static_cast<glm::vec3*>(storageBuffer.mapped);
         std::vector<glm::vec3> sh;
         sh.resize(width*height*9);
         memcpy(sh.data(), data, width*height*9*sizeof(glm::vec3));
-        for (size_t i = 0; i < 9; i++) {
-            std::cout << sh[i].x << " " << sh[i].y << " " << sh[i].z << std::endl;
-        }
-
+        std::cerr << "Saving SH coefficients...";
+        using namespace nlohmann;
+        json j;
+        for (uint32_t y = 0; y <height;y++)
+        {
+            for (uint32_t x = 0; x < width; x++)
+            {
+                uint32_t index = (y*width+x)*9;
+            	json probe;
+                probe["x"] =x;
+                probe["y"] =y;
+                for (uint32_t k = 0; k < 9; k++)
+				{
+                auto toString = [](const float in)
+                {
+					std::stringstream ss;
+					ss << std::setprecision(5) << in;
+					return ss.str();
+				};
+                
+					probe["v"].push_back({ toString(sh[index+k].x), toString(sh[index+k].y), toString(sh[index+k].z) });
+				}
+				j.push_back(probe);
+			}
+		}
+        std::string file("sh.json");
+    	std::ofstream o(file);
+        o <<  j << std::endl;
+        std::cerr<<"\rData saved to "<<file<<std::endl;
     }
-    //void saveScreenshot()
-    //{
-    //    // Get layout of the image (including row pitch)
-    //    VkImageSubresource subResource { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0 };
-    //    VkSubresourceLayout subResourceLayout;
-    //    vkGetImageSubresourceLayout(device, copyImage.image, &subResource, &subResourceLayout);
-    //    // Map image memory so we can start copying from it
-    //    const char* data;
-    //    vkMapMemory(device, copyImage.memory, 0, VK_WHOLE_SIZE, 0, (void**)&data);
-    //    data += subResourceLayout.offset;
-    //    std::string filename = std::to_string((uniformData.frame) * SAMPLE_COUNT) + std::string(".ppm");
-    //    std::ofstream file(filename, std::ios::out | std::ios::binary);
-    //    // ppm header
-    //    file << "P6\n"
-    //         << width << "\n"
-    //         << height << "\n"
-    //         << 255 << "\n";
-    //    // If source is BGR (destination is always RGB) and we can't use blit (which does automatic conversion), we'll have to manually swizzle color components
-    //    bool colorSwizzle = false;
-    //    // Check if source is BGR
-    //    // Note: Not complete, only contains most common and basic BGR surface formats for demonstration purposes
-    //    std::vector<VkFormat> formatsBGR = { VK_FORMAT_B8G8R8A8_SRGB, VK_FORMAT_B8G8R8A8_UNORM, VK_FORMAT_B8G8R8A8_SNORM };
-    //    colorSwizzle = (std::find(formatsBGR.begin(), formatsBGR.end(), swapChain.colorFormat) != formatsBGR.end());
-    //    // ppm binary pixel data
-    //    for (uint32_t y = 0; y < height; y++) {
-    //        unsigned int* row = (unsigned int*)data;
-    //        for (uint32_t x = 0; x < width; x++) {
-    //            if (colorSwizzle) {
-    //                file.write((char*)row + 2, 1);
-    //                file.write((char*)row + 1, 1);
-    //                file.write((char*)row, 1);
-    //            } else {
-    //                file.write((char*)row, 3);
-    //            }
-    //            row++;
-    //        }
-    //        data += subResourceLayout.rowPitch;
-    //    }
-    //    file.close();
-    //    std::cerr << "Screenshot saved to disk" << std::endl;
-    //    vkUnmapMemory(device, copyImage.memory);
-    //}
 
     virtual void viewChanged() { uniformData.frame = -1; }
 };

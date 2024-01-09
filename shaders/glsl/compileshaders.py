@@ -10,6 +10,9 @@ parser.add_argument("--glslang", type=str, help="path to glslangvalidator execut
 parser.add_argument("--g", action="store_true", help="compile with debug symbols")
 args = parser.parse_args()
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
+dir_path = dir_path.replace("\\", "/")
+
 
 def findGlslang():
     def isExe(path):
@@ -22,6 +25,9 @@ def findGlslang():
     if os.name == "nt":
         exe_name += ".exe"
 
+    if isExe(os.path.join(dir_path, exe_name)):
+        return os.path.join(dir_path, exe_name)
+
     for exe_dir in os.environ["PATH"].split(os.pathsep):
         full_path = os.path.join(exe_dir, exe_name)
         if isExe(full_path):
@@ -31,8 +37,7 @@ def findGlslang():
 
 
 glslang_path = findGlslang()
-dir_path = os.path.dirname(os.path.realpath(__file__))
-dir_path = dir_path.replace("\\", "/")
+print("Using glslangvalidator: " + glslang_path)
 
 
 def process_file(file):

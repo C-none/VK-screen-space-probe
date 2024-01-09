@@ -81,7 +81,8 @@ void main()
 			radiance=stack.direct_radiance[depth]+stack.attenuation[depth]*radiance;
 			depth--;
 		}
-		radiance=clamp(radiance,0.,2.);
+		// clamp radiance for decreasing noise
+		// radiance=clamp(radiance,0.,2.);
 		update(SH,sampleDirection,radiance);
 	}
 	
@@ -106,5 +107,5 @@ void main()
 			storeSH(SH[i],bias+i);
 		}
 	}
-	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias+3)*2.,1.));
+	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias)*2.,1.));
 }
