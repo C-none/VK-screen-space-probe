@@ -9,7 +9,7 @@ constexpr uint32_t HEIGHT = 720;
 // it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/pathtracing/raygen.rgen. 'stack_size' can be set freely.
 // the smaller the value, the faster the ray tracing speed
 constexpr uint32_t RECURSIVE_DEPTH = 10;
-constexpr bool ENABLE_DIRECT_LIGHTING = false;
+constexpr bool ENABLE_DIRECT_LIGHTING = true;
 // Stratified sampling
 // divide one pixel into SAMPLE_DIMENSION*SAMPLE_DEMENTION subpixels
 // then uniform randomly generate one sample in each subpixels

@@ -17,9 +17,28 @@ This project is a part of work testing collaborative rendering based on UE5 back
 
 It is based on [SaschaWillems's Vulkan code](https://github.com/SaschaWillems/Vulkan/), using Vulkan Ray Tracing Pipeline to fully utilize GPU power. It supports point lights and GLTF models with normal map.
 
+Path tracing result
+![](img/radiance.jpg)
+
+Indirect irradiance result
+![](img/irradiance.jpg)
+
+
 It includes 2 target: a GPU path tracing and screen probes precompute.
 
 You can modify the parameters in cpp and shader files to change the output. 
+
+## Visualization probe
+
+Modify the code in file [shaders/glsl/ssprobe/raygen.rgen](./shaders/glsl/ssprobe/raygen.rgen)
+
+```glsl
+imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias+i)*k,1.));
+// i : the index of the parameter of SH
+// k : emplify the result because the SH coefficients are prone to be small.
+```
+
+the SH layout is in [shaders/glsl/ssprobe/SH.glsl](./shaders/glsl/ssprobe/SH.glsl)
 
 ### Tricky for denoising
 - Less recursive depth/light bounces(faster, but the indirect lighting is weaker than expect)
