@@ -14,13 +14,13 @@ constexpr bool ENABLE_DIRECT_LIGHTING = false;
 // divide one pixel into SAMPLE_DIMENSION*SAMPLE_DEMENTION subpixels
 // then uniform randomly generate one sample in each subpixels
 // the sample count per frame should be limited in 1000
-constexpr uint32_t SAMPLE_DIMENSION = 2;
+constexpr uint32_t SAMPLE_DIMENSION = 4;
 // Thus, the total sample counts per pixel per frames is
 constexpr uint32_t SAMPLE_COUNT = SAMPLE_DIMENSION * SAMPLE_DIMENSION;
 // the sample results will be accumulated
 // output a ppm every n frames
 // output dir: ./out/build/**/bin/*.ppm
-constexpr uint32_t OUTPUT_INTERVAL = 2500;
+constexpr uint32_t OUTPUT_INTERVAL = 625;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);

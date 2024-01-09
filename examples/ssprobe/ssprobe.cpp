@@ -9,7 +9,7 @@ constexpr uint32_t WIDTH = 1280;
 constexpr uint32_t HEIGHT = 720;
 // it is recommended not less than 8 and should not be greater than 'stack_size' in glsl/ssprobe/raygen.rgen. 'stack_size' can be set freely.
 // the smaller the value, the faster the ray tracing speed
-constexpr uint32_t RECURSIVE_DEPTH = 8;
+constexpr uint32_t RECURSIVE_DEPTH = 10;
 // total sample counts per pixel per frames is
 constexpr uint32_t SAMPLE_COUNT = 4;
 // the sample results(SH coefficients) will be accumulated
