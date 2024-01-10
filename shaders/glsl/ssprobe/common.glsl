@@ -2,7 +2,9 @@ struct RayPayload{
     vec3 radiance;
     vec3 worldpos;
     vec3 samplevec;
-    vec3 attenuation;
+    vec3 brdf;
+    float cosine;
+    float pdf;
     uint seed;
     bool lightingflag;
     bool recursiveflag;

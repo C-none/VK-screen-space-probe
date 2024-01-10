@@ -56,7 +56,7 @@ layout(binding=3,set=0)uniform LightBlock{
 #include "random.glsl"
 
 bool check_visibility(vec3 lightvec){
-	traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xFF,1,0,1,rayPL.worldpos,.001,normalize(lightvec),10000.,1);
+	traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xFF,1,0,1,rayPL.worldpos,.0001,normalize(lightvec),10000.,1);
 	return dist<0||dist>length(lightvec);
 }
 
@@ -96,13 +96,13 @@ vec3 compute_albedo(vec3 l){
 }
 mat3 TBN;
 
-vec3 generate_hemisphere(out float pdf){
+vec4 generate_hemisphere(){
 	float a=2.*PI*rnd(rayPL.seed);
 	float cosb=sqrt(rnd(rayPL.seed));
 	float sinb=sqrt(1.-cosb*cosb);
 	vec3 samplevec=vec3(cos(a)*sinb,sin(a)*sinb,cosb);
-	pdf=cosb/PI;
-	return normalize(TBN*samplevec);
+	float pdf=cosb*(1./PI);
+	return vec4(normalize(TBN*samplevec),pdf);
 }
 
 void main()
@@ -114,13 +114,16 @@ void main()
 	
 	vec3 albedo=texture(textures[nonuniformEXT(geometryNode.textureIndexBaseColor)],tri.uv).rgb;
 	// compute t b n
+	if(dot(tri.normal,gl_WorldRayDirectionEXT)>0.){
+		tri.normal*=-1.;
+		tri.tangent*=-1.;
+	}
 	vec3 N=normalize(tri.normal);
 	vec3 T=normalize(tri.tangent.xyz);
 	vec3 B=normalize(cross(N,T)*tri.tangent.w);
 	TBN=mat3(T,B,N);
 	
 	vec3 worldnormal=normalize(TBN*normalize(texture(textures[nonuniformEXT(geometryNode.textureIndexNormal)],tri.uv).rgb*2.-vec3(1.)));
-	if(dot(worldnormal,gl_WorldRayDirectionEXT)>0.)worldnormal*=-1.;
 	
 	rayPL.radiance=vec3(0.);
 	vec3 direct_lighting=vec3(0.);
@@ -146,7 +149,9 @@ void main()
 	// indirect lighting
 	rayPL.recursiveflag=true;
 	// sample hemisphere
-	float pdf;
-	rayPL.samplevec=generate_hemisphere(pdf);
-	rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec)/pdf;
+	vec4 samplevec=generate_hemisphere();
+	rayPL.samplevec=samplevec.xyz;
+	rayPL.pdf=samplevec.w;
+	rayPL.brdf=compute_albedo(rayPL.samplevec);
+	rayPL.cosine=max(0.,dot(worldnormal,rayPL.samplevec));
 }

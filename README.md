@@ -45,4 +45,8 @@ the SH layout is in [shaders/glsl/ssprobe/SH.glsl](./shaders/glsl/ssprobe/SH.gls
 - more samples(slower and does not make much sense if it is greater than 10k)
 - more lights(recommended)
 - clamp the radiance samples(need to be modified in shaders and will make the result a **little** darker)
+```glsl
+// e.g. in shaders/glsl/ssprobe/raygen.rgen
+radiance=clamp(radiance,0.,80.);
+```
 

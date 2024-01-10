@@ -28,12 +28,13 @@ layout(location=0)rayPayloadEXT RayPayload rayPL;
 #include "random.glsl"
 
 const uint stack_size=16;
-//const uint maxdepth=10;
 uint samples=ubo.sampleDimenson*ubo.sampleDimenson;
 
 struct Stack{
 	vec3 direct_radiance[stack_size];
-	vec3 attenuation[stack_size];
+	vec3 brdf[stack_size];
+	float cosine[stack_size];
+	float pdf[stack_size];
 }stack;
 
 vec3 gamma_correct(vec3 color)
@@ -75,30 +76,35 @@ void main()
 		float tmax=10000.;
 		
 		int depth=0;
+		
 		for(depth=0;;depth++)
 		{
 			traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xff,0,0,0,origin,tmin,direction,tmax,0);
 			stack.direct_radiance[depth]=rayPL.radiance;
+			stack.brdf[depth]=rayPL.brdf;
+			stack.cosine[depth]=rayPL.cosine;
+			stack.pdf[depth]=rayPL.pdf;
 			if(rayPL.recursiveflag==false){depth=max(0,depth-1);break;}
-			if(depth>=ubo.recursiveDepth-1)break;
-			stack.attenuation[depth]=rayPL.attenuation;
+			if(stack.cosine[depth]==0.||depth>=ubo.recursiveDepth-1)break;
 			origin=rayPL.worldpos;
 			direction=rayPL.samplevec;
 		}
 		vec3 radiance=vec3(0.);
 		while(depth>0)
 		{
-			radiance=stack.direct_radiance[depth]+stack.attenuation[depth]*radiance;
+			radiance=stack.direct_radiance[depth]+radiance*stack.brdf[depth]*stack.cosine[depth]/stack.pdf[depth];
 			depth--;
 		}
-		if(ubo.enableDirectLighting==1)
-		hitValues+=radiance*stack.attenuation[0]+stack.direct_radiance[0];
-		else
-		hitValues+=radiance;
+		if(ubo.enableDirectLighting==1){
+			hitValues+=stack.direct_radiance[0]+radiance*stack.brdf[0]*stack.cosine[0]/stack.pdf[0];
+		}
+		else{
+			hitValues+=radiance*stack.cosine[0]/stack.pdf[0];
+		}
 	}
 	
 	vec3 hitVal=hitValues/float(samples);
-	hitVal=clamp(hitVal,vec3(0.),vec3(1.2));
+	// hitVal=clamp(hitVal,0.,1.2);
 	if(ubo.frame>0)
 	{
 		float a=1.f/float(ubo.frame+1);
@@ -107,7 +113,7 @@ void main()
 	}
 	else
 	{
-		//		 First frame, replace the value in the buffer
+		// First frame, replace the value in the buffer
 		imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(gamma_correct(hitVal),1.f));
 	}
 	

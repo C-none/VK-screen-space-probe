@@ -11,11 +11,11 @@ constexpr uint32_t HEIGHT = 720;
 // the smaller the value, the faster the ray tracing speed
 constexpr uint32_t RECURSIVE_DEPTH = 10;
 // total sample counts per pixel per frames is
-constexpr uint32_t SAMPLE_COUNT = 4;
+constexpr uint32_t SAMPLE_COUNT = 2;
 // the sample results(SH coefficients) will be accumulated
 // output a json every n frames
 // output dir: ./out/**/bin/sh.json
-constexpr uint32_t OUTPUT_INTERVAL = 100;
+constexpr uint32_t OUTPUT_INTERVAL = 5000;
 // more camera parameters could be set in VulkanExample(): VulkanRaytracingSample(ENABLE_VALIDATION)
 constexpr glm::vec3 POSITION = glm::vec3(-0.5f, 5.0f, 3.5f);
 constexpr glm::vec3 ROTATION = glm::vec3(-15.0f, 120.0f, 0.0f);

@@ -96,13 +96,13 @@ vec3 compute_albedo(vec3 l){
 }
 mat3 TBN;
 
-vec3 generate_hemisphere(out float pdf){
+vec4 generate_hemisphere(){
 	float a=2.*PI*rnd(rayPL.seed);
 	float cosb=sqrt(rnd(rayPL.seed));
 	float sinb=sqrt(1.-cosb*cosb);
 	vec3 samplevec=vec3(cos(a)*sinb,sin(a)*sinb,cosb);
-	pdf=cosb/PI;
-	return normalize(TBN*samplevec);
+	float pdf=cosb*(1./PI);
+	return vec4(normalize(TBN*samplevec),pdf);
 }
 
 void main()
@@ -114,46 +114,44 @@ void main()
 	
 	vec3 albedo=texture(textures[nonuniformEXT(geometryNode.textureIndexBaseColor)],tri.uv).rgb;
 	// compute t b n
+	if(dot(tri.normal,gl_WorldRayDirectionEXT)>0.){
+		tri.normal*=-1.;
+		tri.tangent*=-1.;
+	}
 	vec3 N=normalize(tri.normal);
 	vec3 T=normalize(tri.tangent.xyz);
 	vec3 B=normalize(cross(N,T)*tri.tangent.w);
 	TBN=mat3(T,B,N);
 	
 	vec3 worldnormal=normalize(TBN*normalize(texture(textures[nonuniformEXT(geometryNode.textureIndexNormal)],tri.uv).rgb*2.-vec3(1.)));
-	if(dot(worldnormal,gl_WorldRayDirectionEXT)>0.)worldnormal*=-1.;
 	
 	rayPL.radiance=vec3(0.);
 	vec3 direct_lighting=vec3(0.);
-	//	if(rayPL.lightflag){
-		// direct lighting
-		for(int i=0;i<ubo.lightCount;i++){
-			// check visibility
-			vec3 lightvec=lights.light[i].position.xyz-rayPL.worldpos;
-			if(dot(worldnormal,lightvec)>=0.&&check_visibility(lightvec)){
-				float lightDistance=length(lightvec);
-				float attenuation=1./(lightDistance*lightDistance);
-				//				float attenuation=1./lightDistance;
-				float NdotL=max(dot(worldnormal,normalize(lightvec)),0.);
-				direct_lighting+=lights.light[i].color*NdotL*lights.light[i].intensity*attenuation*compute_albedo(lightvec);
-			}
+	// direct lighting
+	for(int i=0;i<ubo.lightCount;i++){
+		// check visibility
+		vec3 lightvec=lights.light[i].position.xyz-rayPL.worldpos;
+		if(dot(worldnormal,lightvec)>=0.&&check_visibility(lightvec)){
+			float lightDistance=length(lightvec);
+			float attenuation=1./(lightDistance*lightDistance);
+			//	float attenuation=1./lightDistance;
+			float NdotL=max(dot(worldnormal,normalize(lightvec)),0.);
+			direct_lighting+=lights.light[i].color*NdotL*lights.light[i].intensity*attenuation*compute_albedo(lightvec);
 		}
-	//	}
+	}
 	//	rayPL.radiance=compute_albedo(-gl_WorldRayDirectionEXT);
 	//	rayPL.radiance=vec3(lights.light.intensity/4.);
 	rayPL.radiance=direct_lighting;
-	//		rayPL.radiance=worldnormal;
+	// rayPL.radiance=worldnormal;
 	// indirect lighting
-	// test Russian Roulette
-	//	const float p=1/8.;
-	//	if(rnd(rayPL.seed)<p){
-		//		rayPL.recursiveflag=false;
-	//	}else{
-		rayPL.recursiveflag=true;
-		// sample hemisphere
-		float pdf;
-		rayPL.samplevec=generate_hemisphere(pdf);
-		rayPL.attenuation=compute_albedo(rayPL.samplevec)*dot(worldnormal,rayPL.samplevec)/pdf;
-	//	}
+	
+	rayPL.recursiveflag=true;
+	// sample hemisphere
+	vec4 samplevec=generate_hemisphere();
+	rayPL.samplevec=samplevec.xyz;
+	rayPL.pdf=samplevec.w;
+	rayPL.brdf=compute_albedo(rayPL.samplevec);
+	rayPL.cosine=max(0.,dot(worldnormal,rayPL.samplevec));
 	
 	// Trace shadow ray and offset indices to match shadow hit/miss shader group indices
 	//	traceRayEXT(topLevelAS,gl_RayFlagsTerminateOnFirstHitEXT|gl_RayFlagsOpaqueEXT|gl_RayFlagsSkipClosestHitShaderEXT,0xFF,0,0,1,origin,tmin,lightVector,tmax,2);

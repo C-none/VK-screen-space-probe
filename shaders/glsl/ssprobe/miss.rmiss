@@ -14,6 +14,8 @@ layout(location=0)rayPayloadInEXT RayPayload rayPL;
 void main()
 {
 	rayPL.radiance=vec3(0.);
-	rayPL.attenuation=vec3(1.);
+	rayPL.brdf=vec3(1.);
+	rayPL.cosine=0.;
+	rayPL.pdf=1.;
 	rayPL.recursiveflag=false;
 }

@@ -27,7 +27,9 @@ uint samples=ubo.sampleCount;
 
 struct Stack{
 	vec3 direct_radiance[stack_size];
-	vec3 attenuation[stack_size];
+	vec3 brdf[stack_size];
+	float cosine[stack_size];
+	float pdf[stack_size];
 }stack;
 
 void main()
@@ -62,13 +64,15 @@ void main()
 			else rayPL.lightingflag=true;
 			traceRayEXT(topLevelAS,gl_RayFlagsNoneEXT,0xff,0,0,0,origin,tmin,direction,tmax,0);
 			stack.direct_radiance[depth]=rayPL.radiance;
+			stack.brdf[depth]=rayPL.brdf;
+			stack.cosine[depth]=rayPL.cosine;
+			stack.pdf[depth]=rayPL.pdf;
 			if(rayPL.recursiveflag==false){
 				depth=max(depth-1,0);
 				break;
 			}
-			if(depth>=ubo.recursiveDepth-1)break;
 			if(depth==0)sampleDirection=rayPL.samplevec;
-			stack.attenuation[depth]=rayPL.attenuation;
+			if(stack.cosine[depth]==0.||depth>=ubo.recursiveDepth-1)break;
 			origin=rayPL.worldpos;
 			direction=rayPL.samplevec;
 		}
@@ -78,11 +82,13 @@ void main()
 		vec3 radiance=vec3(0.);
 		while(depth>0)
 		{
-			radiance=stack.direct_radiance[depth]+stack.attenuation[depth]*radiance;
+			radiance=stack.direct_radiance[depth]+radiance*stack.brdf[depth]*stack.cosine[depth]/stack.pdf[depth];
 			depth--;
 		}
+		radiance=radiance/stack.pdf[0];
+		
 		// clamp radiance for decreasing noise
-		// radiance=clamp(radiance,0.,2.);
+		// radiance=clamp(radiance,0.,80.);
 		update(SH,sampleDirection,radiance);
 	}
 	
@@ -107,5 +113,5 @@ void main()
 			storeSH(SH[i],bias+i);
 		}
 	}
-	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias)*2.,1.));
+	imageStore(image,ivec2(gl_LaunchIDEXT.xy),vec4(loadSH(bias),1.));
 }
