@@ -11,7 +11,7 @@ This project is a part of work testing collaborative rendering based on UE5 back
 - [Vulkan SDK](https://vulkan.lunarg.com/sdk/home)
 - Cmake
 - Windows system and graphic card supports hardware Ray Tracing(e.g. Nvidia RTX series)
-- Optinal(easy to compile): Vscode(recommended)/Visual Studio
+- Optional(easy to compile): Vscode(recommended)/Visual Studio
 
 ## Implementation
 
